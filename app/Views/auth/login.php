@@ -6,7 +6,7 @@
                 <h2><?= e(school_meta('system_name', 'Moomba Boarding Secondary School')) ?></h2>
                 <p>Premium academic management system built for fast school operations on desktop and phone.</p>
                 <div class="login-stat-grid">
-                    <div class="mini-stat"><strong>Mobile First</strong><span>Easy navigation for teachers on phones</span></div>
+                    <div class="mini-stat"><strong>Mobile Friendly</strong><span>Easy navigation for users on phones</span></div>
                     <div class="mini-stat"><strong>Fast Results</strong><span>Exam and term report engine</span></div>
                     <div class="mini-stat"><strong>Announcements</strong><span>School-wide updates inside the portal</span></div>
                 </div>
