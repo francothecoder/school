@@ -1,0 +1,4 @@
+<div class="panel-card">
+    <div class="panel-head d-flex justify-content-between align-items-center"><h5>Enrollments</h5><?php if (current_user()['role']==='admin'): ?><a class="btn btn-primary" href="<?= e(base_url('/enrollments/create')) ?>">Enroll Student</a><?php endif; ?></div>
+    <div class="table-responsive"><table class="table table-modern"><thead><tr><th>Student</th><th>Code</th><th>Class</th><th>Section</th><th>Year</th></tr></thead><tbody><?php foreach ($enrollments as $row): ?><tr><td><?= e($row['student_name'] ?? '-') ?></td><td><?= e($row['student_code'] ?? '-') ?></td><td><?= e($row['class_name'] ?? '-') ?></td><td><?= e($row['section_name'] ?? '-') ?></td><td><?= e($row['year']) ?></td></tr><?php endforeach; ?></tbody></table></div>
+</div>

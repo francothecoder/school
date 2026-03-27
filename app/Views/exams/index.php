@@ -1,0 +1,4 @@
+<div class="panel-card">
+    <div class="panel-head d-flex justify-content-between align-items-center"><h5>Exams</h5><?php if (current_user()['role']==='admin'): ?><a class="btn btn-primary" href="<?= e(base_url('/exams/create')) ?>">Create Exam</a><?php endif; ?></div>
+    <div class="table-responsive"><table class="table table-modern"><thead><tr><th>Name</th><th>Term</th><th>Date</th><th>Year</th><th>Comment</th></tr></thead><tbody><?php foreach ($exams as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= e($row['exam_term']) ?></td><td><?= e($row['date']) ?></td><td><?= e($row['year']) ?></td><td><?= e($row['comment']) ?></td></tr><?php endforeach; ?></tbody></table></div>
+</div>

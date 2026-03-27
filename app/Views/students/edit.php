@@ -1,0 +1,15 @@
+<div class="panel-card"><div class="panel-head"><h5>Edit Student</h5></div><form method="post" action="<?= e(base_url('/students/update')) ?>" class="row g-3">
+    <input type="hidden" name="student_id" value="<?= e($student['student_id']) ?>"><input type="hidden" name="enroll_id" value="<?= e($currentEnrollment['enroll_id'] ?? '') ?>">
+    <div class="col-md-4"><label class="form-label">Student Code</label><input name="student_code" class="form-control" value="<?= e($student['student_code'] ?? '') ?>" required></div>
+    <div class="col-md-8"><label class="form-label">Full Name</label><input name="name" class="form-control" value="<?= e($student['name'] ?? '') ?>" required></div>
+    <div class="col-md-4"><label class="form-label">Email</label><input name="email" class="form-control" value="<?= e($student['email'] ?? '') ?>"></div>
+    <div class="col-md-4"><label class="form-label">Sex</label><select name="sex" class="form-select"><option value="">Select</option><option value="male" <?= (($student['sex'] ?? '')==='male'?'selected':'') ?>>Male</option><option value="female" <?= (($student['sex'] ?? '')==='female'?'selected':'') ?>>Female</option></select></div>
+    <div class="col-md-4"><label class="form-label">Phone</label><input name="phone" class="form-control" value="<?= e($student['phone'] ?? '') ?>"></div>
+    <div class="col-md-6"><label class="form-label">Address</label><input name="address" class="form-control" value="<?= e($student['address'] ?? '') ?>"></div>
+    <div class="col-md-3"><label class="form-label">Class</label><select name="class_id" class="form-select" required><?php foreach ($classes as $c): ?><option value="<?= e($c['class_id']) ?>" <?= ((string)($currentEnrollment['class_id'] ?? '') === (string)$c['class_id'] ? 'selected' : '') ?>><?= e($c['name']) ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-3"><label class="form-label">Section</label><select name="section_id" class="form-select"><option value="">None</option><?php foreach ($sections as $s): ?><option value="<?= e($s['section_id']) ?>" <?= ((string)($currentEnrollment['section_id'] ?? '') === (string)$s['section_id'] ? 'selected' : '') ?>><?= e(($s['class_id'] ?? '') . ' - ' . $s['name']) ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-3"><label class="form-label">Roll</label><input name="roll" class="form-control" value="<?= e($currentEnrollment['roll'] ?? '') ?>"></div>
+    <div class="col-md-3"><label class="form-label">Year</label><input name="year" class="form-control" value="<?= e($currentEnrollment['year'] ?? current_year()) ?>"></div>
+    <div class="col-md-6"><label class="form-label">Password <?= '(leave blank to keep current password)' ?></label><input name="password" type="password" class="form-control"></div>
+    <div class="col-12 d-flex gap-2"><button class="btn btn-primary">Save Changes</button><a href="<?= e(base_url('/students')) ?>" class="btn btn-light">Cancel</a></div>
+</form></div>
