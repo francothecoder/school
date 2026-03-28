@@ -5,6 +5,8 @@ namespace Controllers;
 
 use Core\Auth;
 
+use function notify_new_portal_user;
+
 class StudentController extends BaseController
 {
     public function index(): void
