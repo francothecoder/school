@@ -126,32 +126,109 @@ class StudentController extends BaseController
         $this->render('students/bulk-admission', compact('title', 'classes', 'sections'));
     }
 
+
+
+    public function downloadBulkTemplate(): void
+    {
+        require_auth(['admin']);
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="learntrack-student-import-template.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['student_code', 'full_name', 'sex', 'email', 'phone', 'roll']);
+        fputcsv($out, ['ST001', 'Mary Banda', 'female', 'mary@example.com', '0970000000', '1']);
+        fputcsv($out, ['ST002', 'John Phiri', 'male', 'john@example.com', '0960000000', '2']);
+        fclose($out);
+        exit;
+    }
+
     public function bulkStore(): void
     {
         require_auth(['admin']);
         $classId = (int) request('class_id');
         $sectionId = request('section_id') ?: null;
         $year = (string) request('year', current_year());
-        $defaultPassword = (string) request('default_password', '123456');
+        $defaultPassword = trim((string) request('default_password', '123456')) ?: '123456';
         $created = 0;
+        $skipped = 0;
 
-        $rows = preg_split('/\r\n|\r|\n/', (string) request('students_blob', ''));
-        foreach ($rows as $line) {
-            $line = trim($line);
-            if ($line === '') {
+        if ($classId <= 0) {
+            flash('error', 'Please select a class before importing students.');
+            redirect('/students/bulk-admission');
+        }
+
+        $rows = [];
+        $upload = $_FILES['students_csv'] ?? null;
+        if (is_array($upload) && (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            if ((int) ($upload['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+                flash('error', 'The CSV file could not be uploaded. Please try again.');
+                redirect('/students/bulk-admission');
+            }
+            $tmpName = (string) ($upload['tmp_name'] ?? '');
+            $extension = strtolower((string) pathinfo((string) ($upload['name'] ?? ''), PATHINFO_EXTENSION));
+            if ($tmpName === '' || !is_uploaded_file($tmpName) || $extension !== 'csv') {
+                flash('error', 'Please upload a valid CSV file.');
+                redirect('/students/bulk-admission');
+            }
+
+            if (($handle = fopen($tmpName, 'r')) !== false) {
+                while (($row = fgetcsv($handle)) !== false) {
+                    if ($row === [null] || $row === false) {
+                        continue;
+                    }
+                    $rows[] = $row;
+                }
+                fclose($handle);
+            }
+        }
+
+        if (!$rows) {
+            $lines = preg_split('/
+||
+/', (string) request('students_blob', ''));
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $rows[] = str_getcsv($line);
+            }
+        }
+
+        if (!$rows) {
+            flash('error', 'Please upload a CSV file or paste student lines to import.');
+            redirect('/students/bulk-admission');
+        }
+
+        $firstRow = array_map(static fn($value) => strtolower(trim((string) $value)), $rows[0] ?? []);
+        $possibleHeaders = ['student_code', 'code', 'full_name', 'name', 'sex', 'gender', 'email', 'phone', 'roll'];
+        if ($firstRow && count(array_intersect($firstRow, $possibleHeaders)) >= 2) {
+            array_shift($rows);
+        }
+
+        $class = $classId > 0 ? db()->fetch("SELECT name FROM class WHERE class_id = :id LIMIT 1", ['id' => $classId]) : null;
+        $section = $sectionId ? db()->fetch("SELECT name FROM section WHERE section_id = :id LIMIT 1", ['id' => $sectionId]) : null;
+
+        foreach ($rows as $rawRow) {
+            $parts = array_map(static fn($value) => trim((string) $value), is_array($rawRow) ? $rawRow : []);
+            if (!$parts) {
                 continue;
             }
-            $parts = array_map('trim', str_getcsv($line));
+
             $studentCode = $parts[0] ?? '';
             $name = $parts[1] ?? '';
             $sex = strtolower($parts[2] ?? '');
             $email = $parts[3] ?? '';
             $phone = $parts[4] ?? '';
+            $roll = $parts[5] ?? null;
+
             if ($studentCode === '' || $name === '') {
+                $skipped++;
                 continue;
             }
 
             $exists = db()->fetch("SELECT student_id FROM student WHERE student_code = :student_code LIMIT 1", ['student_code' => $studentCode]);
+            $studentEmail = $email ?: ($studentCode . '@school.local');
+            $isNewStudent = false;
             if ($exists) {
                 $studentId = (int) $exists['student_id'];
             } else {
@@ -159,13 +236,14 @@ class StudentController extends BaseController
                     VALUES (:student_code, :name, :email, :password, :sex, :phone, :address, 0)", [
                     'student_code' => $studentCode,
                     'name' => $name,
-                    'email' => $email ?: ($studentCode . '@school.local'),
+                    'email' => $studentEmail,
                     'password' => Auth::makePassword($defaultPassword),
                     'sex' => $sex,
                     'phone' => $phone,
                     'address' => '',
                 ]);
                 $studentId = (int) db()->lastInsertId();
+                $isNewStudent = true;
             }
 
             $enrolled = db()->fetch("SELECT enroll_id FROM enroll WHERE student_id = :student_id AND year = :year LIMIT 1", [
@@ -173,23 +251,44 @@ class StudentController extends BaseController
                 'year' => $year,
             ]);
             if ($enrolled) {
+                $skipped++;
                 continue;
             }
 
             db()->execute("INSERT INTO enroll (enroll_code, student_id, class_id, section_id, roll, date_added, year)
                 VALUES (:enroll_code, :student_id, :class_id, :section_id, :roll, :date_added, :year)", [
-                'enroll_code' => substr(md5((string) microtime(true) . $studentId . $year), 0, 7),
+                'enroll_code' => substr(md5((string) microtime(true) . $studentId . $year . $studentCode), 0, 7),
                 'student_id' => $studentId,
                 'class_id' => $classId,
                 'section_id' => $sectionId,
-                'roll' => null,
+                'roll' => $roll !== '' ? $roll : null,
                 'date_added' => (string) time(),
                 'year' => $year,
             ]);
+
+            if ($isNewStudent && function_exists('notify_new_portal_user')) {
+                
+otify_new_portal_user([
+                    'role' => 'student',
+                    'record_id' => $studentId,
+                    'name' => $name,
+                    'email' => $studentEmail,
+                    'password' => $defaultPassword,
+                    'student_code' => $studentCode,
+                    'class_name' => $class['name'] ?? '',
+                    'section_name' => $section['name'] ?? '',
+                    'year' => $year,
+                ]);
+            }
             $created++;
         }
 
-        flash('success', $created . ' student(s) admitted successfully.');
+        $message = $created . ' student(s) admitted successfully.';
+        if ($skipped > 0) {
+            $message .= ' ' . $skipped . ' row(s) were skipped because they were incomplete or already enrolled for the selected year.';
+        }
+        $message .= ' CSV upload is now supported.';
+        flash('success', $message);
         redirect('/students');
     }
 
