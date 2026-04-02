@@ -41,7 +41,7 @@ class MarkController extends BaseController
                 INNER JOIN student st ON st.student_id = e.student_id
                 LEFT JOIN mark m ON m.student_id = st.student_id AND m.subject_id = :subject_id AND m.exam_id = :exam_id AND m.year = :year
                 WHERE e.class_id = :class_id AND e.year = :year
-                ORDER BY COALESCE(e.roll, 999999), st.name", [
+                ORDER BY st.name ASC, COALESCE(e.roll, 999999), st.student_code ASC", [
                     'year' => $year,
                     'class_id' => $filters['class_id'],
                     'subject_id' => $filters['subject_id'],
