@@ -58,7 +58,7 @@
                     <select name="term" class="form-select">
                         <option value="">Select term</option>
                         <?php foreach (($terms ?? []) as $termOption): ?>
-                            <option value="<?= e($termOption) ?>" <?= (string) $termOption === (string) ($term ?? '') ? 'selected' : '' ?>><?= e($termOption) ?></option>
+                            <option value="<?= e($termOption) ?>" <?= (string) $termOption === (string) ($term ?? '') ? 'selected' : '' ?>><?= e(is_numeric((string) $termOption) ? ('Term ' . $termOption) : $termOption) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -74,7 +74,7 @@
                     <div class="metric-label mb-2">How it works</div>
                     <div class="best-six-grid">
                         <div class="best-six-item"><strong>1. Identify the student</strong><span>Enter student code, email, or phone number.</span></div>
-                        <div class="best-six-item"><strong>2. Choose report mode</strong><span>Select a single exam or a full term summary.</span></div>
+                        <div class="best-six-item"><strong>2. Choose report mode</strong><span>Select one exam or a full term summary across all exams in the chosen term.</span></div>
                         <div class="best-six-item"><strong>3. Download or print</strong><span>Generate a polished report card once the record loads.</span></div>
                     </div>
                 </div>

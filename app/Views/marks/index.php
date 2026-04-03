@@ -25,7 +25,6 @@
         <h5><?= e($subject['name'] ?? 'Subject') ?> · <?= e($exam['name'] ?? 'Exam') ?></h5>
         <div class="card-actions">
             <span class="badge-soft"><?= count($students) ?> students</span>
-            <span class="badge-soft">Alphabetical order</span>
             <a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('/analytics?class_id=' . $filters['class_id'] . '&exam_id=' . $filters['exam_id'] . '&subject_id=' . $filters['subject_id'] . '&year=' . urlencode($year))) ?>">View Analytics</a>
         </div>
     </div>

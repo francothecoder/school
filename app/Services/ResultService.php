@@ -24,11 +24,20 @@ class ResultService
                 ORDER BY e.enroll_id DESC LIMIT 1", ['student_id' => $studentId]);
         }
 
-        $terms = \db()->fetchAll("SELECT DISTINCT exam_term FROM exam WHERE year = :year AND exam_term IS NOT NULL AND exam_term <> '' ORDER BY exam_term", ['year' => $year]);
-        $terms = array_values(array_filter(array_map(fn($row) => trim((string) ($row['exam_term'] ?? '')), $terms)));
+        $termsRaw = \db()->fetchAll("SELECT DISTINCT exam_term FROM exam WHERE year = :year AND exam_term IS NOT NULL AND exam_term <> '' ORDER BY exam_term", ['year' => $year]);
+        $terms = [];
+        foreach ($termsRaw as $row) {
+            $normalizedTerm = $this->normalizeTermValue((string) ($row['exam_term'] ?? ''));
+            if ($normalizedTerm !== '' && !in_array($normalizedTerm, $terms, true)) {
+                $terms[] = $normalizedTerm;
+            }
+        }
+        usort($terms, fn(string $a, string $b) => $this->termSortWeight($a) <=> $this->termSortWeight($b));
         $exams = \db()->fetchAll("SELECT exam_id, name, year, exam_term, date FROM exam WHERE year = :year ORDER BY exam_id DESC", ['year' => $year]);
 
-        $mode = $term !== '' ? 'term' : 'exam';
+        $normalizedRequestedTerm = $this->normalizeTermValue($term);
+        $mode = $normalizedRequestedTerm !== '' ? 'term' : 'exam';
+        $term = $normalizedRequestedTerm;
         $exam = null;
         $reportLabel = '';
         $examHeaders = [];
@@ -51,7 +60,7 @@ class ResultService
             if ($term === '' && $terms) {
                 $term = $terms[0];
             }
-            $reportLabel = $term !== '' ? ('Term Summary · ' . $term) : 'Term Summary';
+            $reportLabel = $term !== '' ? ('Term Summary · ' . $this->termDisplayLabel($term)) : 'Term Summary';
             [$rows, $examHeaders] = $this->buildTermRows($studentId, $year, $term, $combineScience, $classLevel);
         } else {
             if ($examId <= 0) {
@@ -60,7 +69,7 @@ class ResultService
             }
             $exam = $examId > 0 ? \db()->fetch("SELECT * FROM exam WHERE exam_id = :id", ['id' => $examId]) : null;
             if ($exam && trim((string) ($exam['exam_term'] ?? '')) !== '' && $term === '') {
-                $term = (string) $exam['exam_term'];
+                $term = $this->normalizeTermValue((string) $exam['exam_term']);
             }
             $reportLabel = 'Exam Result · ' . ($exam['name'] ?? '-');
             $rows = $this->buildExamRows($studentId, $year, $examId, $classLevel);
@@ -108,6 +117,7 @@ class ResultService
             'bestSixMetricLabel' => $bestSixMetricLabel,
             'bestSixMetricValue' => $bestSixMetricValue,
             'remarks' => $remarks,
+            'termLabel' => $this->termDisplayLabel($term),
         ];
     }
 
@@ -127,7 +137,7 @@ class ResultService
             ]);
         $rows = [];
         foreach ($marks as $mark) {
-            $score = $mark['mark_obtained'] !== null ? (int) $mark['mark_obtained'] : null;
+            $score = $mark['mark_obtained'] !== null ? (int) round($this->percentScore((int) $mark['mark_obtained'], (int) ($mark['mark_total'] ?? 100))) : null;
             $grade = \mark_grade($score, 'CUSTOM');
             $rows[] = [
                 'subject_name' => $mark['subject_name'] ?? 'Unknown',
@@ -148,20 +158,22 @@ class ResultService
             return [[], []];
         }
 
-        $marks = \db()->fetchAll("SELECT m.*, sub.name AS subject_name, ex.name AS exam_name, ex.exam_term
+        $marks = \db()->fetchAll("SELECT m.*, sub.name AS subject_name, ex.name AS exam_name, ex.exam_term, ex.exam_id
             FROM mark m
             INNER JOIN exam ex ON ex.exam_id = m.exam_id
             LEFT JOIN subject sub ON sub.subject_id = m.subject_id
-            WHERE m.student_id = :student_id AND m.year = :year AND ex.exam_term = :term
+            WHERE m.student_id = :student_id AND m.year = :year
             ORDER BY sub.name, ex.exam_id", [
                 'student_id' => $studentId,
                 'year' => $year,
-                'term' => $term,
             ]);
 
         $examHeaders = [];
         $subjects = [];
         foreach ($marks as $mark) {
+            if ($this->normalizeTermValue((string) ($mark['exam_term'] ?? '')) !== $term) {
+                continue;
+            }
             $subjectName = trim((string) ($mark['subject_name'] ?? 'Unknown')) ?: 'Unknown';
             if ($combineScience && in_array(strtoupper($subjectName), ['PHY', 'CHE'], true)) {
                 $subjectName = 'SCI';
@@ -174,28 +186,35 @@ class ResultService
                 $subjects[$subjectName] = [
                     'subject_name' => $subjectName,
                     'marks' => [],
-                    'scores' => [],
+                    'total_obtained' => 0.0,
+                    'total_possible' => 0.0,
                 ];
             }
-            $score = $mark['mark_obtained'] !== null ? (int) $mark['mark_obtained'] : null;
-            if ($score !== null) {
+            $obtained = $mark['mark_obtained'] !== null ? (float) $mark['mark_obtained'] : null;
+            $markTotal = max(1.0, (float) ($mark['mark_total'] ?? 100));
+            if ($obtained !== null) {
                 if (!isset($subjects[$subjectName]['marks'][$examName])) {
-                    $subjects[$subjectName]['marks'][$examName] = [];
+                    $subjects[$subjectName]['marks'][$examName] = ['obtained' => 0.0, 'total' => 0.0];
                 }
-                $subjects[$subjectName]['marks'][$examName][] = $score;
-                $subjects[$subjectName]['scores'][] = $score;
+                $subjects[$subjectName]['marks'][$examName]['obtained'] += $obtained;
+                $subjects[$subjectName]['marks'][$examName]['total'] += $markTotal;
+                $subjects[$subjectName]['total_obtained'] += $obtained;
+                $subjects[$subjectName]['total_possible'] += $markTotal;
             }
         }
 
+        usort($examHeaders, 'strnatcasecmp');
         $rows = [];
         ksort($subjects);
         foreach ($subjects as $subjectName => $payload) {
-            $score = !empty($payload['scores']) ? (int) round(array_sum($payload['scores']) / count($payload['scores'])) : null;
+            $score = $payload['total_possible'] > 0 ? (int) round($this->percentScore($payload['total_obtained'], $payload['total_possible'])) : null;
             $grade = $this->gradeAndPointsForSummary($score, $classLevel);
             $marksPerExam = [];
             foreach ($examHeaders as $examName) {
-                $values = $payload['marks'][$examName] ?? [];
-                $marksPerExam[$examName] = $values ? (int) round(array_sum($values) / count($values)) : null;
+                $values = $payload['marks'][$examName] ?? null;
+                $marksPerExam[$examName] = $values && $values['total'] > 0
+                    ? (int) round($this->percentScore((float) $values['obtained'], (float) $values['total']))
+                    : null;
             }
             $rows[] = [
                 'subject_name' => $subjectName,
@@ -279,36 +298,39 @@ class ResultService
         }
 
         if ($mode === 'term') {
-            $allMarks = \db()->fetchAll("SELECT m.student_id, m.mark_obtained, sub.name AS subject_name, ex.name AS exam_name
+            $allMarks = \db()->fetchAll("SELECT m.student_id, m.mark_obtained, m.mark_total, sub.name AS subject_name, ex.exam_term
                 FROM mark m
                 INNER JOIN exam ex ON ex.exam_id = m.exam_id
                 LEFT JOIN subject sub ON sub.subject_id = m.subject_id
-                WHERE m.class_id = :class_id AND m.year = :year AND ex.exam_term = :term", [
+                WHERE m.class_id = :class_id AND m.year = :year", [
                 'class_id' => $classId,
                 'year' => $year,
-                'term' => $term,
             ]);
             $stats = [];
             foreach ($allMarks as $mark) {
+                if ($this->normalizeTermValue((string) ($mark['exam_term'] ?? '')) !== $term) {
+                    continue;
+                }
                 $studentId = (int) $mark['student_id'];
                 $subjectName = trim((string) ($mark['subject_name'] ?? 'Unknown')) ?: 'Unknown';
                 if ($combineScience && in_array(strtoupper($subjectName), ['PHY', 'CHE'], true)) {
                     $subjectName = 'SCI';
                 }
-                $score = $mark['mark_obtained'] !== null ? (int) $mark['mark_obtained'] : null;
+                $score = $mark['mark_obtained'] !== null ? (float) $mark['mark_obtained'] : null;
                 if ($score === null) {
                     continue;
                 }
-                $stats[$studentId][$subjectName][] = $score;
+                $stats[$studentId][$subjectName]['obtained'] = ($stats[$studentId][$subjectName]['obtained'] ?? 0.0) + $score;
+                $stats[$studentId][$subjectName]['total'] = ($stats[$studentId][$subjectName]['total'] ?? 0.0) + max(1.0, (float) ($mark['mark_total'] ?? 100));
             }
             $rankings = [];
             foreach ($students as $student) {
                 $studentId = (int) $student['student_id'];
                 $subjectGroups = $stats[$studentId] ?? [];
                 $subjectAverages = [];
-                foreach ($subjectGroups as $subjectName => $scores) {
-                    if ($scores) {
-                        $subjectAverages[] = (int) round(array_sum($scores) / count($scores));
+                foreach ($subjectGroups as $subjectName => $totals) {
+                    if (($totals['total'] ?? 0) > 0) {
+                        $subjectAverages[] = (int) round($this->percentScore((float) $totals['obtained'], (float) $totals['total']));
                     }
                 }
                 $totalMarks = array_sum($subjectAverages);
@@ -321,7 +343,7 @@ class ResultService
                 ];
             }
         } else {
-            $allMarks = \db()->fetchAll("SELECT m.student_id, COALESCE(m.mark_obtained,0) AS mark_obtained
+            $allMarks = \db()->fetchAll("SELECT m.student_id, COALESCE(m.mark_obtained,0) AS mark_obtained, COALESCE(m.mark_total,100) AS mark_total
                 FROM mark m
                 WHERE m.class_id = :class_id AND m.year = :year AND m.exam_id = :exam_id", [
                 'class_id' => $classId,
@@ -332,7 +354,7 @@ class ResultService
             $counts = [];
             foreach ($allMarks as $mark) {
                 $studentId = (int) $mark['student_id'];
-                $stats[$studentId] = ($stats[$studentId] ?? 0) + (int) $mark['mark_obtained'];
+                $stats[$studentId] = ($stats[$studentId] ?? 0) + (int) round($this->percentScore((float) $mark['mark_obtained'], (float) $mark['mark_total']));
                 $counts[$studentId] = ($counts[$studentId] ?? 0) + 1;
             }
             $rankings = [];
@@ -430,5 +452,43 @@ class ResultService
         if ($normalized >= 0.40) return 'Average performance noted. The learner can do better with more consistency.';
         if ($normalized >= 0.25) return 'More effort is needed for the learner to improve academic performance.';
         return 'Performance is below expectation. Please encourage the learner to work much harder.';
+    }
+
+    private function normalizeTermValue(string $term): string
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return '';
+        }
+        if (preg_match('/([123])/', strtoupper($term), $matches)) {
+            return (string) $matches[1];
+        }
+        return strtoupper($term);
+    }
+
+    private function termDisplayLabel(string $term): string
+    {
+        $normalized = $this->normalizeTermValue($term);
+        if (in_array($normalized, ['1', '2', '3'], true)) {
+            return 'Term ' . $normalized;
+        }
+        return $normalized !== '' ? $normalized : '-';
+    }
+
+    private function termSortWeight(string $term): int
+    {
+        $normalized = $this->normalizeTermValue($term);
+        if (ctype_digit($normalized)) {
+            return (int) $normalized;
+        }
+        return 99;
+    }
+
+    private function percentScore(float $obtained, float $total): float
+    {
+        if ($total <= 0) {
+            return 0.0;
+        }
+        return max(0.0, min(100.0, ($obtained / $total) * 100));
     }
 }

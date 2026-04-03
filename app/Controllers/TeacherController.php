@@ -5,8 +5,6 @@ namespace Controllers;
 
 use Core\Auth;
 
-use function notify_new_portal_user;
-
 class TeacherController extends BaseController
 {
     public function index(): void
@@ -37,43 +35,17 @@ class TeacherController extends BaseController
     public function store(): void
     {
         require_auth(['admin']);
-
-        $name = trim((string) request('name'));
-        $email = trim((string) request('email'));
-        $password = (string) request('password', '123456');
-        $designation = (string) request('designation', 'Subject Teacher');
-
         db()->execute("INSERT INTO teacher (name, email, password, sex, phone, address, designation, show_on_website)
             VALUES (:name, :email, :password, :sex, :phone, :address, :designation, 0)", [
-            'name' => $name,
-            'email' => $email,
-            'password' => Auth::makePassword($password),
+            'name' => request('name'),
+            'email' => request('email'),
+            'password' => Auth::makePassword((string) request('password')),
             'sex' => request('sex', ''),
             'phone' => request('phone', ''),
             'address' => request('address', ''),
-            'designation' => $designation,
+            'designation' => request('designation', 'Subject Teacher'),
         ]);
-
-        $teacherId = (int) db()->lastInsertId();
-        $mailStatus = \notify_new_portal_user([
-            'role' => 'teacher',
-            'record_id' => $teacherId,
-            'name' => $name,
-            'email' => $email,
-            'password' => $password,
-            'designation' => $designation,
-        ]);
-
-        $message = 'Teacher created successfully.';
-        if (($mailStatus['reason'] ?? '') === 'sent') {
-            $message .= ' Welcome email sent.';
-        } elseif (($mailStatus['reason'] ?? '') === 'failed') {
-            $message .= ' Teacher added, but email notification failed.';
-        } else {
-            $message .= ' No email notification was sent.';
-        }
-
-        flash('success', $message);
+        flash('success', 'Teacher created successfully.');
         redirect('/teachers');
     }
 

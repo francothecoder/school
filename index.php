@@ -56,7 +56,6 @@ $router->get('/students/edit', 'StudentController@edit');
 $router->post('/students/update', 'StudentController@update');
 $router->post('/students/delete', 'StudentController@delete');
 $router->get('/students/bulk-admission', 'StudentController@bulkAdmission');
-$router->get('/students/bulk-template.csv', 'StudentController@downloadBulkTemplate');
 $router->post('/students/bulk-store', 'StudentController@bulkStore');
 
 $router->get('/teachers', 'TeacherController@index');

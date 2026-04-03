@@ -6,7 +6,7 @@ $isTermMode = ($mode ?? 'exam') === 'term';
     <div class="panel-head d-flex justify-content-between align-items-start">
         <div>
             <h5>Result Report Card</h5>
-            <div class="form-helper">Choose a single exam or a full term summary, then print or download the report card.</div>
+            <div class="form-helper">Choose a single exam result or combine all exams under Term 1, Term 2, or Term 3 into one report card.</div>
         </div>
         <div class="card-actions">
             <button class="btn btn-outline-primary" onclick="window.print()">Print</button>
@@ -45,7 +45,7 @@ $isTermMode = ($mode ?? 'exam') === 'term';
             <select name="term" class="form-select">
                 <option value="">Select term</option>
                 <?php foreach (($terms ?? []) as $termOption): ?>
-                    <option value="<?= e($termOption) ?>" <?= (string) $termOption === (string) ($term ?? '') ? 'selected' : '' ?>><?= e($termOption) ?></option>
+                    <option value="<?= e($termOption) ?>" <?= (string) $termOption === (string) ($term ?? '') ? 'selected' : '' ?>><?= e(is_numeric((string) $termOption) ? ('Term ' . $termOption) : $termOption) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>

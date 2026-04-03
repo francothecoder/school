@@ -5,7 +5,7 @@ $poBox = school_meta('po_box', '390001');
 $motto = school_meta('motto', 'With Perseverance Comes Success');
 $studentName = $student['name'] ?? '-';
 $className = $enroll['class_name'] ?? '-';
-$termLabel = trim((string) ($term ?? ''));
+$termLabel = trim((string) (($termLabel ?? '') ?: ($term ?? '')));
 $isTermMode = ($mode ?? 'exam') === 'term';
 $positionText = ($position ?? null) ? (string) $position : '-';
 $totalStudents = count($rankings ?? []);
@@ -68,7 +68,7 @@ if (!function_exists('report_standard_label_exact')) {
         <div class="report-source-meta-lines">
             <p>Student Name: <?= e($studentName) ?></p>
             <p>Class: <?= e($className) ?></p>
-            <p>Term: <?= e($isTermMode ? ($termLabel ?: '-') : ($exam['exam_term'] ?? $reportLabel ?? '-')) ?></p>
+            <p>Term: <?= e($isTermMode ? ($termLabel ?: '-') : ((isset($exam['exam_term']) && trim((string) $exam['exam_term']) !== '' ? ('Term ' . preg_replace('/[^0-9A-Za-z ]+/', '', (string) $exam['exam_term'])) : ($reportLabel ?? '-'))) ) ?></p>
             <p>Total Students in Class: <?= e((string) $totalStudents) ?></p>
             <p>Position in Class: <?= e($positionText) ?></p>
         </div>
@@ -80,6 +80,7 @@ if (!function_exists('report_standard_label_exact')) {
                     <?php foreach ($reportColumns as $column): ?>
                         <th><?= e($column) ?></th>
                     <?php endforeach; ?>
+                    <?php if ($isTermMode): ?><th>Term Score</th><?php endif; ?>
                     <th>Points</th>
                     <th>Standard</th>
                 </tr>
@@ -92,12 +93,13 @@ if (!function_exists('report_standard_label_exact')) {
                             <?php $value = $isTermMode ? ($row['marks'][$column] ?? null) : ($row['score'] ?? null); ?>
                             <td><?= e($value !== null && $value !== '' ? (string) $value : 'N/A') ?></td>
                         <?php endforeach; ?>
+                        <?php if ($isTermMode): ?><td><?= e(($row['score'] ?? null) !== null ? (string) $row['score'] : 'N/A') ?></td><?php endif; ?>
                         <td><?= e(($row['grade_point'] ?? null) !== null ? (string) $row['grade_point'] : '-') ?></td>
                         <td><?= e(report_standard_label_exact($row['grade_point'] ?? null, $row['grade_name'] ?? '', $standardMap)) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if (empty($rows)): ?>
-                    <tr><td colspan="<?= 3 + count($reportColumns) ?>" class="empty-row">No results found for this selection.</td></tr>
+                    <tr><td colspan="<?= 3 + count($reportColumns) + ($isTermMode ? 1 : 0) ?>" class="empty-row">No results found for this selection.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
