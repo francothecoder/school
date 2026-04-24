@@ -30,7 +30,7 @@
             <thead><tr><th>Exam</th><th>Subject</th><th>Mark</th></tr></thead>
             <tbody>
             <?php foreach ($recentMarks as $row): ?>
-            <tr><td><?= e($row['exam_name'] ?? '-') ?></td><td><?= e($row['subject_name'] ?? '-') ?></td><td><?= e($row['mark_obtained'] ?? '-') ?></td></tr>
+            <tr><td><?= e($row['exam_name'] ?? '-') ?></td><td><?= e($row['subject_name'] ?? '-') ?></td><td><?= e(format_mark($row['mark_obtained'] ?? null)) ?></td></tr>
             <?php endforeach; ?>
             <?php if (!$recentMarks): ?><tr><td colspan="3" class="text-center text-secondary py-4">No marks found yet.</td></tr><?php endif; ?>
             </tbody>

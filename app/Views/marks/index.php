@@ -42,8 +42,8 @@
                     <td><?= e($row['roll'] ?? '-') ?></td>
                     <td><?= e($row['name']) ?></td>
                     <td><?= e($row['student_code']) ?></td>
-                    <td><input type="number" min="0" max="100" name="marks[<?= e($row['student_id']) ?>][mark_obtained]" class="form-control" value="<?= e($row['mark_obtained'] ?? '') ?>"></td>
-                    <td><input type="number" min="1" name="marks[<?= e($row['student_id']) ?>][mark_total]" class="form-control" value="<?= e($row['mark_total'] ?? 100) ?>"></td>
+                    <td><input type="number" min="0" max="100" name="marks[<?= e($row['student_id']) ?>][mark_obtained]" class="form-control" value="<?= e((($row['mark_obtained'] ?? '') === '' || ($row['mark_obtained'] ?? null) === null) ? '' : format_mark($row['mark_obtained'])) ?>"></td>
+                    <td><input type="number" min="1" name="marks[<?= e($row['student_id']) ?>][mark_total]" class="form-control" value="<?= e(format_mark($row['mark_total'] ?? 100)) ?>"></td>
                     <td><input name="marks[<?= e($row['student_id']) ?>][comment]" class="form-control" value="<?= e($row['comment'] ?? '') ?>"></td>
                 </tr>
                 <?php endforeach; ?>

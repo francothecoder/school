@@ -91,9 +91,9 @@ if (!function_exists('report_standard_label_exact')) {
                         <td><?= e($row['subject_name'] ?? '-') ?></td>
                         <?php foreach ($reportColumns as $column): ?>
                             <?php $value = $isTermMode ? ($row['marks'][$column] ?? null) : ($row['score'] ?? null); ?>
-                            <td><?= e($value !== null && $value !== '' ? (string) $value : 'N/A') ?></td>
+                            <td><?= e($value !== null && $value !== '' ? format_mark($value) : 'N/A') ?></td>
                         <?php endforeach; ?>
-                        <?php if ($isTermMode): ?><td><?= e(($row['score'] ?? null) !== null ? (string) $row['score'] : 'N/A') ?></td><?php endif; ?>
+                        <?php if ($isTermMode): ?><td><?= e(($row['score'] ?? null) !== null ? format_mark($row['score']) : 'N/A') ?></td><?php endif; ?>
                         <td><?= e(($row['grade_point'] ?? null) !== null ? (string) $row['grade_point'] : '-') ?></td>
                         <td><?= e(report_standard_label_exact($row['grade_point'] ?? null, $row['grade_name'] ?? '', $standardMap)) ?></td>
                     </tr>

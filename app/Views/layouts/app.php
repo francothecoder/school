@@ -35,11 +35,13 @@ if (!$isGuest) {
         ];
         $navSections[] = [
             'label' => 'Performance',
-            'items' => [
+            'items' => array_values(array_filter([
                 ['label' => 'Marks Entry', 'icon' => 'bi-bar-chart-line', 'url' => base_url('/marks')],
                 ['label' => 'Analytics', 'icon' => 'bi-graph-up-arrow', 'url' => base_url('/analytics')],
                 ['label' => 'Class Exam Sheet', 'icon' => 'bi-table', 'url' => base_url('/reports/class-sheet')],
-            ],
+                $role === 'admin' ? ['label' => 'Results SMS', 'icon' => 'bi-chat-dots', 'url' => base_url('/sms/results')] : null,
+                $role === 'admin' ? ['label' => 'Results Email', 'icon' => 'bi-envelope-arrow-up', 'url' => base_url('/email-results')] : null,
+            ])),
         ];
     }
 
@@ -50,6 +52,8 @@ if (!$isGuest) {
                 ['label' => 'Promotion', 'icon' => 'bi-arrow-up-circle', 'url' => base_url('/promotion')],
                 ['label' => 'Announcements', 'icon' => 'bi-megaphone', 'url' => base_url('/announcements')],
                 ['label' => 'Activity Logs', 'icon' => 'bi-clock-history', 'url' => base_url('/activity-logs')],
+                ['label' => 'SMS Logs', 'icon' => 'bi-envelope-paper', 'url' => base_url('/sms/logs')],
+                ['label' => 'Email Logs', 'icon' => 'bi-envelope-check', 'url' => base_url('/email-results/logs')],
                 ['label' => 'Backup & Restore', 'icon' => 'bi-hdd-stack', 'url' => base_url('/backups')],
                 ['label' => 'Settings', 'icon' => 'bi-sliders', 'url' => base_url('/settings')],
             ],

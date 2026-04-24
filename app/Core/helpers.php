@@ -38,6 +38,21 @@ function e($value): string {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
+
+function format_mark($value): string
+{
+    if ($value === null || $value === '') {
+        return '-';
+    }
+    if (!is_numeric($value)) {
+        return (string) $value;
+    }
+    $float = (float) $value;
+    if (abs($float - round($float)) < 0.00001) {
+        return (string) (int) round($float);
+    }
+    return rtrim(rtrim(number_format($float, 2, '.', ''), '0'), '.');
+}
 function request(string $key, $default = null) {
     return $_POST[$key] ?? $_GET[$key] ?? $default;
 }
@@ -423,6 +438,51 @@ function ensure_support_tables(): void
         status VARCHAR(30) NOT NULL DEFAULT 'ready',
         notes TEXT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    db()->execute("CREATE TABLE IF NOT EXISTS sms_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NULL,
+        class_id INT NULL,
+        exam_id INT NULL,
+        year VARCHAR(30) NULL,
+        phone VARCHAR(30) NOT NULL,
+        message TEXT NOT NULL,
+        provider VARCHAR(40) NOT NULL,
+        send_mode VARCHAR(40) NOT NULL DEFAULT 'class',
+        status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        error_message TEXT NULL,
+        provider_response LONGTEXT NULL,
+        sent_by_role VARCHAR(30) NULL,
+        sent_by_id INT NULL,
+        sent_by_name VARCHAR(190) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_sms_logs_student (student_id),
+        INDEX idx_sms_logs_exam (exam_id),
+        INDEX idx_sms_logs_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    db()->execute("CREATE TABLE IF NOT EXISTS email_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NULL,
+        class_id INT NULL,
+        exam_id INT NULL,
+        year VARCHAR(30) NULL,
+        recipient_email VARCHAR(190) NOT NULL,
+        email_type VARCHAR(40) NOT NULL DEFAULT 'report_card',
+        subject VARCHAR(255) NOT NULL,
+        attachment_name VARCHAR(255) NULL,
+        send_mode VARCHAR(40) NOT NULL DEFAULT 'class',
+        status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        error_message TEXT NULL,
+        provider_response LONGTEXT NULL,
+        sent_by_role VARCHAR(30) NULL,
+        sent_by_id INT NULL,
+        sent_by_name VARCHAR(190) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email_logs_student (student_id),
+        INDEX idx_email_logs_exam (exam_id),
+        INDEX idx_email_logs_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $columns = db()->fetchAll("SHOW COLUMNS FROM mark");

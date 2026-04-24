@@ -72,17 +72,22 @@ class StudentController extends BaseController
         require_auth(['admin']);
         $classes = db()->fetchAll("SELECT * FROM class ORDER BY name_numeric + 0, name");
         $sections = db()->fetchAll("SELECT * FROM section ORDER BY class_id, name");
+        $suggestedStudentCode = $this->generateUniqueStudentCode();
         $title = 'Add Student';
-        $this->render('students/create', compact('title', 'classes', 'sections'));
+        $this->render('students/create', compact('title', 'classes', 'sections', 'suggestedStudentCode'));
     }
 
     public function store(): void
     {
         require_auth(['admin']);
-        $studentCode = trim((string) request('student_code'));
+        $requestedStudentCode = trim((string) request('student_code'));
+        $studentCode = $this->generateUniqueStudentCode($requestedStudentCode);
         $name = trim((string) request('name'));
         $email = trim((string) request('email'));
-        $password = (string) request('password', $studentCode ?: '123456');
+        $password = (string) request('password');
+        if ($password === '') {
+            $password = $studentCode;
+        }
         $classId = (int) request('class_id');
         $sectionId = (int) request('section_id');
         $year = (string) request('year', current_year());
@@ -91,7 +96,7 @@ class StudentController extends BaseController
             VALUES (:student_code, :name, :email, :password, :sex, :phone, :address, 0)", [
             'student_code' => $studentCode,
             'name' => $name,
-            'email' => $email ?: ($studentCode . '@school.local'),
+            'email' => $this->cleanOptionalEmail($email),
             'password' => Auth::makePassword($password),
             'sex' => request('sex', ''),
             'phone' => request('phone', ''),
@@ -111,7 +116,11 @@ class StudentController extends BaseController
             'year' => $year,
         ]);
 
-        flash('success', 'Student created successfully.');
+        $message = 'Student created successfully.';
+        if ($requestedStudentCode === '' || strcasecmp($requestedStudentCode, $studentCode) !== 0) {
+            $message .= ' Assigned code: ' . $studentCode . '.';
+        }
+        flash('success', $message);
         redirect('/students');
     }
 
@@ -132,38 +141,41 @@ class StudentController extends BaseController
         $year = (string) request('year', current_year());
         $defaultPassword = (string) request('default_password', '123456');
         $created = 0;
+        $skipped = 0;
 
-        $rows = preg_split('/\r\n|\r|\n/', (string) request('students_blob', ''));
-        foreach ($rows as $line) {
-            $line = trim($line);
-            if ($line === '') {
+        foreach ($this->collectBulkStudentLines() as $parts) {
+            $parts = array_map(static fn($value) => trim((string) $value), (array) $parts);
+            if (!$parts || $this->isBulkHeaderRow($parts)) {
                 continue;
             }
-            $parts = array_map('trim', str_getcsv($line));
-            $studentCode = $parts[0] ?? '';
+
+            $studentCode = $this->generateUniqueStudentCode($parts[0] ?? '');
             $name = $parts[1] ?? '';
-            $sex = strtolower($parts[2] ?? '');
-            $email = $parts[3] ?? '';
+            $sex = $this->normalizeSex($parts[2] ?? '');
+            $email = $this->cleanOptionalEmail($parts[3] ?? '');
             $phone = $parts[4] ?? '';
-            if ($studentCode === '' || $name === '') {
+            $roll = $parts[5] ?? null;
+
+            if ($name === '' || $sex === '') {
+                $skipped++;
                 continue;
             }
 
-            $exists = db()->fetch("SELECT student_id FROM student WHERE student_code = :student_code LIMIT 1", ['student_code' => $studentCode]);
-            if ($exists) {
-                $studentId = (int) $exists['student_id'];
-            } else {
+            try {
                 db()->execute("INSERT INTO student (student_code, name, email, password, sex, phone, address, parent_id)
                     VALUES (:student_code, :name, :email, :password, :sex, :phone, :address, 0)", [
                     'student_code' => $studentCode,
                     'name' => $name,
-                    'email' => $email ?: ($studentCode . '@school.local'),
-                    'password' => Auth::makePassword($defaultPassword),
+                    'email' => $email,
+                    'password' => Auth::makePassword($defaultPassword !== '' ? $defaultPassword : $studentCode),
                     'sex' => $sex,
                     'phone' => $phone,
                     'address' => '',
                 ]);
                 $studentId = (int) db()->lastInsertId();
+            } catch (\PDOException $e) {
+                $skipped++;
+                continue;
             }
 
             $enrolled = db()->fetch("SELECT enroll_id FROM enroll WHERE student_id = :student_id AND year = :year LIMIT 1", [
@@ -180,14 +192,14 @@ class StudentController extends BaseController
                 'student_id' => $studentId,
                 'class_id' => $classId,
                 'section_id' => $sectionId,
-                'roll' => null,
+                'roll' => $roll !== '' ? $roll : null,
                 'date_added' => (string) time(),
                 'year' => $year,
             ]);
             $created++;
         }
 
-        flash('success', $created . ' student(s) admitted successfully.');
+        flash('success', $created . ' student(s) admitted successfully. Blank/duplicate emails were safely ignored, and missing/duplicate student codes were auto-corrected.' . ($skipped > 0 ? ' Skipped rows: ' . $skipped . '.' : ''));
         redirect('/students');
     }
 
@@ -225,6 +237,8 @@ class StudentController extends BaseController
     {
         require_auth(['admin']);
         $id = (int) request('student_id');
+        $requestedStudentCode = trim((string) request('student_code'));
+        $studentCode = $this->generateUniqueStudentCode($requestedStudentCode, $id);
         db()->execute("UPDATE student SET
             student_code = :student_code,
             name = :name,
@@ -233,9 +247,9 @@ class StudentController extends BaseController
             phone = :phone,
             address = :address
             WHERE student_id = :id", [
-            'student_code' => request('student_code'),
+            'student_code' => $studentCode,
             'name' => request('name'),
-            'email' => request('email'),
+            'email' => $this->cleanOptionalEmail(request('email'), $id),
             'sex' => request('sex'),
             'phone' => request('phone'),
             'address' => request('address'),
@@ -257,7 +271,11 @@ class StudentController extends BaseController
                 'id' => $enrollmentId,
             ]);
         }
-        flash('success', 'Student updated successfully.');
+        $message = 'Student updated successfully.';
+        if ($requestedStudentCode === '' || strcasecmp($requestedStudentCode, $studentCode) !== 0) {
+            $message .= ' Saved code: ' . $studentCode . '.';
+        }
+        flash('success', $message);
         redirect('/students/show?id=' . $id);
     }
 
@@ -302,4 +320,117 @@ class StudentController extends BaseController
         redirect('/students');
     }
 
+    private function cleanOptionalEmail($email, ?int $ignoreStudentId = null): ?string
+    {
+        $email = trim((string) $email);
+        if ($email === '') {
+            return null;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        $sql = "SELECT student_id FROM student WHERE email = :email";
+        $params = ['email' => $email];
+        if ($ignoreStudentId !== null && $ignoreStudentId > 0) {
+            $sql .= " AND student_id != :ignore_student_id";
+            $params['ignore_student_id'] = $ignoreStudentId;
+        }
+        $sql .= " LIMIT 1";
+
+        return db()->fetch($sql, $params) ? null : $email;
+    }
+
+    private function normalizeSex(string $sex): string
+    {
+        $sex = strtolower(trim($sex));
+        if (in_array($sex, ['m', 'male'], true)) {
+            return 'male';
+        }
+        if (in_array($sex, ['f', 'female'], true)) {
+            return 'female';
+        }
+        return $sex;
+    }
+
+    private function collectBulkStudentLines(): array
+    {
+        $lines = [];
+        if (!empty($_FILES['students_csv']['tmp_name']) && is_uploaded_file($_FILES['students_csv']['tmp_name'])) {
+            $handle = fopen($_FILES['students_csv']['tmp_name'], 'r');
+            if ($handle !== false) {
+                while (($row = fgetcsv($handle)) !== false) {
+                    $lines[] = $row;
+                }
+                fclose($handle);
+            }
+        }
+
+        $blob = trim((string) request('students_blob', ''));
+        if ($blob !== '') {
+            foreach (preg_split('/\r\n|\r|\n/', $blob) as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $lines[] = str_getcsv($line);
+                }
+            }
+        }
+        return $lines;
+    }
+
+    private function isBulkHeaderRow(array $parts): bool
+    {
+        $first = strtolower(trim((string) ($parts[0] ?? '')));
+        $second = strtolower(trim((string) ($parts[1] ?? '')));
+        return in_array($first, ['student_code', 'code', 'student code'], true)
+            || in_array($second, ['full_name', 'fullname', 'name', 'student name'], true);
+    }
+
+    private function generateUniqueStudentCode(string $preferred = '', ?int $ignoreStudentId = null): string
+    {
+        $preferred = strtoupper(trim($preferred));
+        $preferred = preg_replace('/[^A-Z0-9\-_]/', '', $preferred) ?: '';
+
+        if ($preferred !== '' && !$this->studentCodeExists($preferred, $ignoreStudentId)) {
+            return $preferred;
+        }
+
+        if ($preferred !== '') {
+            for ($suffix = 2; $suffix <= 9999; $suffix++) {
+                $candidate = $preferred . '-' . $suffix;
+                if (!$this->studentCodeExists($candidate, $ignoreStudentId)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        $rows = db()->fetchAll("SELECT student_code FROM student WHERE student_code LIKE 'STU%' ORDER BY student_id DESC LIMIT 500");
+        $max = 0;
+        foreach ($rows as $row) {
+            if (preg_match('/^STU(\d+)$/', (string) ($row['student_code'] ?? ''), $match)) {
+                $max = max($max, (int) $match[1]);
+            }
+        }
+        $next = max(1, $max + 1);
+        for ($i = 0; $i < 10000; $i++) {
+            $candidate = 'STU' . str_pad((string) ($next + $i), 4, '0', STR_PAD_LEFT);
+            if (!$this->studentCodeExists($candidate, $ignoreStudentId)) {
+                return $candidate;
+            }
+        }
+
+        return 'STU' . strtoupper(substr(md5((string) microtime(true)), 0, 8));
+    }
+
+    private function studentCodeExists(string $studentCode, ?int $ignoreStudentId = null): bool
+    {
+        $sql = "SELECT student_id FROM student WHERE student_code = :student_code";
+        $params = ['student_code' => $studentCode];
+        if ($ignoreStudentId !== null && $ignoreStudentId > 0) {
+            $sql .= " AND student_id != :ignore_student_id";
+            $params['ignore_student_id'] = $ignoreStudentId;
+        }
+        $sql .= " LIMIT 1";
+        return (bool) db()->fetch($sql, $params);
+    }
 }

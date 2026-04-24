@@ -105,6 +105,13 @@ $router->get('/reports/result-slip', 'ReportController@resultSlip');
 $router->get('/results/quick', 'ReportController@quick');
 $router->get('/reports/class-sheet', 'ReportController@classSheet');
 
+$router->get('/sms/results', 'SmsController@results');
+$router->post('/sms/results', 'SmsController@results');
+$router->get('/sms/logs', 'SmsController@logs');
+$router->get('/email-results', 'EmailResultController@results');
+$router->post('/email-results', 'EmailResultController@results');
+$router->get('/email-results/logs', 'EmailResultController@logs');
+
 $router->get('/promotion', 'PromotionController@index');
 $router->post('/promotion/process', 'PromotionController@process');
 

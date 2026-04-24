@@ -44,10 +44,10 @@
                     <td><?= e($student['name']) ?></td>
                     <td><?= e($student['student_code']) ?></td>
                     <?php foreach ($subjects as $subject): $score = $grid[(int)$student['student_id']][(int)$subject['subject_id']]['mark_obtained'] ?? null; if ($score !== null && $score !== '') { $total += (int) $score; $count++; } ?>
-                        <td><?= e($score !== null && $score !== '' ? (string) $score : '-') ?></td>
+                        <td><?= e($score !== null && $score !== '' ? format_mark($score) : '-') ?></td>
                     <?php endforeach; ?>
                     <td><?= e((string) $total) ?></td>
-                    <td><?= e($count ? number_format($total / $count, 2) : '-') ?></td>
+                    <td><?= e($count ? format_mark($total / $count) : '-') ?></td>
                 </tr>
                 <?php endforeach; ?>
                 <?php if (!$students): ?><tr><td colspan="<?= 4 + count($subjects) ?>" class="text-center text-secondary py-4">No enrollment records found for this class and year.</td></tr><?php endif; ?>

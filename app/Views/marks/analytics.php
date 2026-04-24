@@ -154,7 +154,7 @@ $failRate = $totalCount > 0 ? ($failCount / $totalCount) * 100 : 0;
                     <thead><tr><th>Student</th><th>Code</th><th>Sex</th><th>Mark</th><th>Total</th></tr></thead>
                     <tbody>
                     <?php foreach ($subjectPerformance as $row): ?>
-                    <tr><td><?= e($row['name']) ?></td><td><?= e($row['student_code']) ?></td><td><?= e($row['sex']) ?></td><td><?= e((string)$row['mark_obtained']) ?></td><td><?= e((string)$row['mark_total']) ?></td></tr>
+                    <tr><td><?= e($row['name']) ?></td><td><?= e($row['student_code']) ?></td><td><?= e($row['sex']) ?></td><td><?= e(format_mark($row['mark_obtained'] ?? null)) ?></td><td><?= e(format_mark($row['mark_total'] ?? null)) ?></td></tr>
                     <?php endforeach; ?>
                     <?php if (!$subjectPerformance): ?><tr><td colspan="5" class="empty-state">Choose a specific subject and exam to see the student-by-student marks table.</td></tr><?php endif; ?>
                     </tbody>

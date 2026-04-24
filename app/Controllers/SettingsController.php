@@ -42,6 +42,22 @@ class SettingsController extends BaseController
             'head_signature' => request('head_signature', ''),
             'grading_scale_lines' => grading_scale_lines_from_scale($validatedScale),
             'passing_mark' => request('passing_mark', '40'),
+            'sms_enabled' => request('sms_enabled', '0') === '1' ? '1' : '0',
+            'sms_provider' => request('sms_provider', 'beem'),
+            'sms_sender_id' => request('sms_sender_id', ''),
+            'sms_max_length' => request('sms_max_length', '192'),
+            'sms_footer' => request('sms_footer', 'LearnTrack Pro'),
+            'beem_api_key' => request('beem_api_key', ''),
+            'beem_secret_key' => request('beem_secret_key', ''),
+            'beem_sender_id' => request('beem_sender_id', request('sms_sender_id', '')),
+            'beem_api_url' => request('beem_api_url', 'https://apisms.beem.africa/v1/send'),
+            'zamtel_api_url' => request('zamtel_api_url', ''),
+            'zamtel_username' => request('zamtel_username', ''),
+            'zamtel_password' => request('zamtel_password', ''),
+            'zamtel_sender_id' => request('zamtel_sender_id', request('sms_sender_id', '')),
+            'email_results_enabled' => request('email_results_enabled', '0') === '1' ? '1' : '0',
+            'email_from_address' => request('email_from_address', request('mail_from_address', 'support@learntrackschools.online')),
+            'email_from_name' => request('email_from_name', request('system_name', 'LearnTrack Pro')),
         ];
         foreach ($pairs as $type => $description) {
             settings_upsert($type, trim((string) $description));
