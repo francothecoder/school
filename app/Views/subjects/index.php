@@ -11,10 +11,10 @@
             <tr>
                 <td><?= e($row['name']) ?></td>
                 <td><?= e($row['class_name'] ?? '-') ?></td>
-                <td><?= e($row['teacher_name'] ?? '-') ?></td>
+                <td><?= e($row['teacher_name'] ?? 'Unassigned') ?></td>
                 <td><?= e($row['year']) ?></td>
                 <?php if (current_user()['role']==='admin'): ?>
-                <td><a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('/classes/show?id=' . $row['class_id'])) ?>">Manage in class</a></td>
+                <td><div class="d-flex gap-2 justify-content-end"><a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('/subjects/edit?id=' . $row['subject_id'])) ?>">Edit</a><a class="btn btn-sm btn-outline-secondary" href="<?= e(base_url('/classes/show?id=' . $row['class_id'])) ?>">Manage in class</a></div></td>
                 <?php endif; ?>
             </tr>
             <?php endforeach; ?>

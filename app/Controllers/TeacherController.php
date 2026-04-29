@@ -97,4 +97,42 @@ class TeacherController extends BaseController
         flash('success', 'Teacher updated successfully.');
         redirect('/teachers/show?id=' . $id);
     }
+
+    public function delete(): void
+    {
+        require_auth(['admin']);
+        $id = (int) request('teacher_id');
+        if ($id <= 0) {
+            flash('error', 'Invalid teacher selected.');
+            redirect('/teachers');
+        }
+        $teacher = db()->fetch("SELECT * FROM teacher WHERE teacher_id = :id LIMIT 1", ['id' => $id]);
+        if (!$teacher) {
+            flash('error', 'Teacher not found.');
+            redirect('/teachers');
+        }
+
+        $pdo = db()->pdo();
+        try {
+            $pdo->beginTransaction();
+            db()->execute("UPDATE subject SET teacher_id = NULL WHERE teacher_id = :teacher_id", ['teacher_id' => $id]);
+            db()->execute("DELETE FROM teacher WHERE teacher_id = :teacher_id", ['teacher_id' => $id]);
+            $pdo->commit();
+            log_activity([
+                'action' => 'delete',
+                'module_name' => 'teachers',
+                'record_id' => $id,
+                'description' => 'Deleted teacher ' . ($teacher['name'] ?? ('#' . $id)) . '. Assigned subjects were unassigned; marks entered by the teacher were preserved.',
+                'old_values' => json_encode($teacher),
+            ]);
+            flash('success', 'Teacher deleted successfully. Assigned subjects are now unassigned, and entered marks remain intact.');
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            flash('error', 'Unable to delete teacher right now.');
+        }
+        redirect('/teachers');
+    }
+
 }

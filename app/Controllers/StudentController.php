@@ -289,35 +289,79 @@ class StudentController extends BaseController
             redirect('/students');
         }
 
-        $student = db()->fetch("SELECT student_id, name FROM student WHERE student_id = :id LIMIT 1", ['id' => $id]);
-        if (!$student) {
-            flash('error', 'Student record not found.');
-            redirect('/students');
+        try {
+            $deleted = $this->deleteStudentsCascade([$id]);
+            flash($deleted > 0 ? 'success' : 'error', $deleted > 0 ? 'Student deleted successfully. Enrollment, marks, attendance and related academic records were removed too.' : 'Student record not found.');
+        } catch (\Throwable $e) {
+            flash('error', 'Unable to delete student right now.');
+        }
+        redirect('/students');
+    }
+
+    public function bulkDelete(): void
+    {
+        require_auth(['admin']);
+        $ids = request('student_ids', []);
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn($id) => $id > 0)));
+
+        if (!$ids) {
+            flash('error', 'No students selected for deletion.');
+            redirect('/students?class_id=' . urlencode((string) request('class_id', '')));
         }
 
-        $pdo = db()->pdo();
         try {
-            $pdo->beginTransaction();
-            db()->execute("DELETE FROM attendance WHERE student_id = :student_id", ['student_id' => $id]);
-            db()->execute("DELETE FROM mark WHERE student_id = :student_id", ['student_id' => $id]);
-            db()->execute("DELETE FROM enroll WHERE student_id = :student_id", ['student_id' => $id]);
-            db()->execute("DELETE FROM student WHERE student_id = :student_id", ['student_id' => $id]);
+            $deleted = $this->deleteStudentsCascade($ids);
+            flash('success', $deleted . ' student(s) deleted successfully. Enrollment, marks, attendance and related academic records were removed too.');
+        } catch (\Throwable $e) {
+            flash('error', 'Unable to bulk delete selected students right now.');
+        }
+        redirect('/students?class_id=' . urlencode((string) request('class_id', '')));
+    }
+
+    private function deleteStudentsCascade(array $studentIds): int
+    {
+        $studentIds = array_values(array_unique(array_filter(array_map('intval', $studentIds), static fn($id) => $id > 0)));
+        if (!$studentIds) {
+            return 0;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+        $students = db()->fetchAll("SELECT student_id, student_code, name, email FROM student WHERE student_id IN ($placeholders)", $studentIds);
+        if (!$students) {
+            return 0;
+        }
+        $ids = array_map(static fn($row) => (int) $row['student_id'], $students);
+        $deletePlaceholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $pdo = db()->pdo();
+        $pdo->beginTransaction();
+        try {
+            db()->execute("DELETE FROM attendance WHERE student_id IN ($deletePlaceholders)", $ids);
+            db()->execute("DELETE FROM mark WHERE student_id IN ($deletePlaceholders)", $ids);
+            db()->execute("DELETE FROM enroll WHERE student_id IN ($deletePlaceholders)", $ids);
+            db()->execute("DELETE FROM student WHERE student_id IN ($deletePlaceholders)", $ids);
             $pdo->commit();
-            log_activity([
-                'action' => 'delete',
-                'module_name' => 'students',
-                'record_id' => $id,
-                'description' => 'Deleted student ' . ($student['name'] ?? ('#' . $id)) . ' together with enrollment and academic records.',
-                'old_values' => json_encode($student),
-            ]);
-            flash('success', 'Student deleted successfully. Enrollment and academic records were removed too.');
         } catch (\Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            flash('error', 'Unable to delete student right now.');
+            throw $e;
         }
-        redirect('/students');
+
+        foreach ($students as $student) {
+            log_activity([
+                'action' => 'delete',
+                'module_name' => 'students',
+                'record_id' => (int) $student['student_id'],
+                'description' => 'Deleted student ' . ($student['name'] ?? ('#' . $student['student_id'])) . ' together with enrollment, marks, attendance and related academic records.',
+                'old_values' => json_encode($student),
+            ]);
+        }
+
+        return count($students);
     }
 
     private function cleanOptionalEmail($email, ?int $ignoreStudentId = null): ?string

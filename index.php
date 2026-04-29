@@ -55,6 +55,7 @@ $router->get('/students/show', 'StudentController@show');
 $router->get('/students/edit', 'StudentController@edit');
 $router->post('/students/update', 'StudentController@update');
 $router->post('/students/delete', 'StudentController@delete');
+$router->post('/students/bulk-delete', 'StudentController@bulkDelete');
 $router->get('/students/bulk-admission', 'StudentController@bulkAdmission');
 $router->post('/students/bulk-store', 'StudentController@bulkStore');
 
@@ -64,6 +65,7 @@ $router->post('/teachers/store', 'TeacherController@store');
 $router->get('/teachers/show', 'TeacherController@show');
 $router->get('/teachers/edit', 'TeacherController@edit');
 $router->post('/teachers/update', 'TeacherController@update');
+$router->post('/teachers/delete', 'TeacherController@delete');
 
 $router->get('/classes', 'ClassController@index');
 $router->get('/classes/create', 'ClassController@create');
@@ -80,6 +82,8 @@ $router->post('/sections/delete', 'SectionController@delete');
 $router->get('/subjects', 'SubjectController@index');
 $router->get('/subjects/create', 'SubjectController@create');
 $router->post('/subjects/store', 'SubjectController@store');
+$router->get('/subjects/edit', 'SubjectController@edit');
+$router->post('/subjects/update', 'SubjectController@update');
 $router->post('/subjects/delete', 'SubjectController@delete');
 
 $router->get('/enrollments', 'EnrollmentController@index');
@@ -89,6 +93,8 @@ $router->post('/enrollments/store', 'EnrollmentController@store');
 $router->get('/exams', 'ExamController@index');
 $router->get('/exams/create', 'ExamController@create');
 $router->post('/exams/store', 'ExamController@store');
+$router->get('/exams/edit', 'ExamController@edit');
+$router->post('/exams/update', 'ExamController@update');
 
 $router->get('/marks', 'MarkController@index');
 $router->post('/marks/save', 'MarkController@save');

@@ -5,7 +5,7 @@
         <table class="table table-modern">
             <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Designation</th><th>Subjects</th><th></th></tr></thead>
             <tbody>
-            <?php foreach ($teachers as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= e($row['email']) ?></td><td><?= e($row['phone'] ?? '-') ?></td><td><?= e($row['designation'] ?? '-') ?></td><td><?= e($row['assigned_subjects']) ?></td><td><a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('/teachers/show?id=' . $row['teacher_id'])) ?>">View</a></td></tr><?php endforeach; ?>
+            <?php foreach ($teachers as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= e($row['email']) ?></td><td><?= e($row['phone'] ?? '-') ?></td><td><?= e($row['designation'] ?? '-') ?></td><td><?= e($row['assigned_subjects']) ?></td><td><div class="d-flex gap-2 justify-content-end"><a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('/teachers/show?id=' . $row['teacher_id'])) ?>">View</a><form method="post" action="<?= e(base_url('/teachers/delete')) ?>" onsubmit="return confirm('Delete this teacher? Assigned subjects will be unassigned, but marks entered will remain intact.');"><input type="hidden" name="teacher_id" value="<?= e($row['teacher_id']) ?>"><button class="btn btn-sm btn-outline-danger">Delete</button></form></div></td></tr><?php endforeach; ?>
             </tbody>
         </table>
     </div>

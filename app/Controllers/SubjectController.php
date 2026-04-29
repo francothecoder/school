@@ -37,7 +37,9 @@ class SubjectController extends BaseController
     public function store(): void
     {
         require_auth(['admin']);
-        $names = preg_split('/\r\n|\r|\n|,/', (string) request('name'));
+        $names = preg_split('/
+||
+|,/', (string) request('name'));
         $classId = (int) request('class_id');
         $teacherId = request('teacher_id') ?: null;
         $year = (string) request('year', current_year());
@@ -74,6 +76,58 @@ class SubjectController extends BaseController
         redirect('/subjects');
     }
 
+    public function edit(): void
+    {
+        require_auth(['admin']);
+        $id = (int) request('id');
+        $subject = db()->fetch("SELECT * FROM subject WHERE subject_id = :id LIMIT 1", ['id' => $id]);
+        if (!$subject) {
+            flash('error', 'Subject not found.');
+            redirect('/subjects');
+        }
+        $classes = db()->fetchAll("SELECT * FROM class ORDER BY name_numeric + 0, name");
+        $teachers = db()->fetchAll("SELECT teacher_id, name FROM teacher ORDER BY name");
+        $title = 'Edit Subject';
+        $this->render('subjects/edit', compact('title', 'subject', 'classes', 'teachers'));
+    }
+
+    public function update(): void
+    {
+        require_auth(['admin']);
+        $id = (int) request('subject_id');
+        if ($id <= 0) {
+            flash('error', 'Invalid subject selected.');
+            redirect('/subjects');
+        }
+        $old = db()->fetch("SELECT * FROM subject WHERE subject_id = :id LIMIT 1", ['id' => $id]);
+        if (!$old) {
+            flash('error', 'Subject not found.');
+            redirect('/subjects');
+        }
+        db()->execute("UPDATE subject SET name = :name, class_id = :class_id, teacher_id = :teacher_id, year = :year WHERE subject_id = :id", [
+            'name' => strtoupper(trim((string) request('name'))),
+            'class_id' => (int) request('class_id'),
+            'teacher_id' => request('teacher_id') ?: null,
+            'year' => request('year', current_year()),
+            'id' => $id,
+        ]);
+        log_activity([
+            'action' => 'update',
+            'module_name' => 'subjects',
+            'record_id' => $id,
+            'description' => 'Updated subject details/teacher assignment.',
+            'old_values' => json_encode($old),
+            'new_values' => json_encode([
+                'name' => request('name'),
+                'class_id' => request('class_id'),
+                'teacher_id' => request('teacher_id'),
+                'year' => request('year', current_year()),
+            ]),
+        ]);
+        flash('success', 'Subject updated successfully. Teacher assignment changed without affecting existing marks.');
+        redirect('/subjects');
+    }
+
     public function delete(): void
     {
         require_auth(['admin']);
@@ -81,7 +135,7 @@ class SubjectController extends BaseController
         $classId = (int) request('class_id');
         $marks = db()->fetch("SELECT COUNT(*) AS total FROM mark WHERE subject_id = :subject_id", ['subject_id' => $subjectId]);
         if ((int) ($marks['total'] ?? 0) > 0) {
-            flash('error', 'This subject already has mark records and cannot be deleted.');
+            flash('error', 'This subject already has mark records and cannot be deleted. You can edit its teacher assignment instead.');
             redirect('/classes/show?id=' . $classId);
         }
         db()->execute("DELETE FROM subject WHERE subject_id = :subject_id", ['subject_id' => $subjectId]);
