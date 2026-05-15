@@ -1,0 +1,11 @@
+LearnTrack Pro v7.2 - Class-wise Subjects Management Update
+
+Added:
+- Subjects page now asks admin/teacher to select a class first.
+- Subjects are listed class-wise instead of one long global list.
+- Admin can add one or multiple subjects directly to the selected class.
+- Admin can edit subject name, class, teacher, and year.
+- Admin can reassign subject teacher from the selected class subject list.
+- Admin can delete subjects with no existing marks from the selected class subject list.
+- Subjects with existing marks are protected from deletion to avoid breaking report cards.
+- Existing marks remain intact when teacher assignment changes.

@@ -40,6 +40,12 @@ $router->get('/terms-and-conditions', 'PolicyController@terms');
 $router->get('/privacy-policy', 'PolicyController@privacy');
 
 $router->get('/dashboard', 'DashboardController@index');
+$router->get('/admins', 'AdminController@index');
+$router->get('/admins/create', 'AdminController@create');
+$router->post('/admins/store', 'AdminController@store');
+$router->get('/admins/edit', 'AdminController@edit');
+$router->post('/admins/update', 'AdminController@update');
+$router->post('/admins/delete', 'AdminController@delete');
 $router->get('/api/global-search', 'SearchController@suggest');
 $router->get('/activity-logs', 'ActivityController@index');
 $router->get('/backups', 'BackupController@index');
@@ -71,6 +77,7 @@ $router->get('/classes', 'ClassController@index');
 $router->get('/classes/create', 'ClassController@create');
 $router->post('/classes/store', 'ClassController@store');
 $router->get('/classes/show', 'ClassController@show');
+$router->post('/classes/delete', 'ClassController@delete');
 
 $router->get('/sections', 'SectionController@index');
 $router->get('/sections/create', 'SectionController@create');
@@ -84,6 +91,7 @@ $router->get('/subjects/create', 'SubjectController@create');
 $router->post('/subjects/store', 'SubjectController@store');
 $router->get('/subjects/edit', 'SubjectController@edit');
 $router->post('/subjects/update', 'SubjectController@update');
+$router->post('/subjects/reassign-teacher', 'SubjectController@reassignTeacher');
 $router->post('/subjects/delete', 'SubjectController@delete');
 
 $router->get('/enrollments', 'EnrollmentController@index');

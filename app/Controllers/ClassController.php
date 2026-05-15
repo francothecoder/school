@@ -85,4 +85,62 @@ class ClassController extends BaseController
         $title = 'Class Profile';
         $this->render('classes/show', compact('title', 'year', 'class', 'sections', 'subjects', 'students', 'teachers'));
     }
+
+
+    public function delete(): void
+    {
+        require_auth(['admin']);
+        $id = (int) request('class_id');
+        if ($id <= 0) {
+            flash('error', 'Invalid class selected.');
+            redirect('/classes');
+        }
+        $class = db()->fetch("SELECT * FROM class WHERE class_id = :id LIMIT 1", ['id' => $id]);
+        if (!$class) {
+            flash('error', 'Class not found.');
+            redirect('/classes');
+        }
+
+        $studentRows = db()->fetchAll("SELECT DISTINCT student_id FROM enroll WHERE class_id = :class_id", ['class_id' => $id]);
+        $studentIds = array_values(array_filter(array_map(static fn($r) => (int)($r['student_id'] ?? 0), $studentRows)));
+        $deletedStudents = count($studentIds);
+        $pdo = db()->pdo();
+
+        try {
+            $pdo->beginTransaction();
+
+            if ($studentIds) {
+                $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+                db()->execute("DELETE FROM attendance WHERE student_id IN ({$placeholders})", $studentIds);
+                db()->execute("DELETE FROM mark WHERE student_id IN ({$placeholders})", $studentIds);
+                db()->execute("DELETE FROM enroll WHERE student_id IN ({$placeholders})", $studentIds);
+                db()->execute("DELETE FROM student WHERE student_id IN ({$placeholders})", $studentIds);
+            }
+
+            db()->execute("DELETE FROM attendance WHERE class_id = :class_id", ['class_id' => $id]);
+            db()->execute("DELETE FROM mark WHERE class_id = :class_id", ['class_id' => $id]);
+            db()->execute("DELETE FROM enroll WHERE class_id = :class_id", ['class_id' => $id]);
+            db()->execute("DELETE FROM subject WHERE class_id = :class_id", ['class_id' => $id]);
+            db()->execute("DELETE FROM section WHERE class_id = :class_id", ['class_id' => $id]);
+            db()->execute("DELETE FROM class WHERE class_id = :class_id", ['class_id' => $id]);
+
+            $pdo->commit();
+            log_activity([
+                'action' => 'delete',
+                'module_name' => 'classes',
+                'record_id' => $id,
+                'description' => 'Deleted class ' . ($class['name'] ?? ('#' . $id)) . ' and removed ' . $deletedStudents . ' linked student(s) with their enrollments, marks, and attendance records.',
+                'old_values' => json_encode($class),
+            ]);
+            flash('success', 'Class deleted successfully. ' . $deletedStudents . ' linked student(s) and related data were removed.');
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            flash('error', 'Unable to delete class. Please try again or check related database constraints.');
+        }
+
+        redirect('/classes');
+    }
+
 }

@@ -1,0 +1,38 @@
+LearnTrack Pro v7.2 - Admin Controls Full System Update
+
+Applied updates:
+1. Bulk delete students from filtered class list
+   - Select a class on Students page
+   - Tick selected students or select all
+   - Delete selected students
+   - Removes student record plus enrollments, marks and attendance records
+   - Logs deletion activity
+
+2. Exam editing
+   - Edit exam name, term, date, year and comment
+   - Term normalized to Term 1, Term 2 or Term 3
+   - Logs exam update activity
+
+3. Teacher deletion
+   - Delete teacher from teacher directory
+   - Existing marks remain intact
+   - Subjects assigned to deleted teacher become unassigned
+   - Logs deletion activity
+
+4. Subject editing
+   - Edit subject name, class, academic year and assigned teacher
+   - Existing marks remain intact
+   - Logs subject update activity
+
+Files updated include:
+- index.php
+- app/Controllers/StudentController.php
+- app/Controllers/ExamController.php
+- app/Controllers/TeacherController.php
+- app/Controllers/SubjectController.php
+- app/Views/students/index.php
+- app/Views/exams/index.php
+- app/Views/exams/edit.php
+- app/Views/teachers/index.php
+- app/Views/subjects/index.php
+- app/Views/subjects/edit.php

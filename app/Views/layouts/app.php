@@ -49,6 +49,7 @@ if (!$isGuest) {
         $navSections[] = [
             'label' => 'Administration',
             'items' => [
+                ['label' => 'Admin Accounts', 'icon' => 'bi-person-gear', 'url' => base_url('/admins')],
                 ['label' => 'Promotion', 'icon' => 'bi-arrow-up-circle', 'url' => base_url('/promotion')],
                 ['label' => 'Announcements', 'icon' => 'bi-megaphone', 'url' => base_url('/announcements')],
                 ['label' => 'Activity Logs', 'icon' => 'bi-clock-history', 'url' => base_url('/activity-logs')],

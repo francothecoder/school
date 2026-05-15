@@ -462,6 +462,19 @@ function ensure_support_tables(): void
         INDEX idx_sms_logs_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    try {
+        $adminColumns = db()->fetchAll("SHOW COLUMNS FROM admin");
+        $adminExistingCols = array_map(fn($row) => strtolower((string)($row['Field'] ?? '')), $adminColumns);
+        if (!in_array('phone', $adminExistingCols, true)) {
+            db()->execute("ALTER TABLE admin ADD COLUMN phone VARCHAR(50) NULL");
+        }
+        if (!in_array('address', $adminExistingCols, true)) {
+            db()->execute("ALTER TABLE admin ADD COLUMN address VARCHAR(255) NULL");
+        }
+    } catch (\Throwable $e) {
+        // Admin management will still work on fresh schemas; ignore legacy patch errors silently.
+    }
+
     db()->execute("CREATE TABLE IF NOT EXISTS email_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NULL,
